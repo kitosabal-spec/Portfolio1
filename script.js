@@ -493,6 +493,10 @@ function initScrollTop() {
    The form POSTs directly to formsubmit.co which handles delivery.
    JS only does validation + loading state; does NOT call e.preventDefault()
    on a valid submit, so the browser sends it natively. */
+/*
+   CONTACT FORM — FormSubmit (AJAX/Fetch)
+   Sends data asynchronously, prevents redirect, shows status, resets form, and hides status after 3s.
+*/
 function initContactForm() {
   const form = document.getElementById('contact-form');
   const sendBtn = document.getElementById('send-btn');
@@ -500,9 +504,20 @@ function initContactForm() {
   const btnLoad = document.getElementById('btn-loader');
   const btnIcon = document.getElementById('btn-icon');
 
+  // Status messages
+  const successMsg = document.getElementById('form-success');
+  const errorMsg = document.getElementById('form-error');
+
   if (!form) return;
 
   form.addEventListener('submit', (e) => {
+    // ALWAYS block the native redirect submission
+    e.preventDefault();
+
+    // Hide any previous status messages
+    successMsg.style.display = 'none';
+    errorMsg.style.display = 'none';
+
     /* Clear previous inline errors */
     ['err-name', 'err-email', 'err-msg'].forEach(id => {
       document.getElementById(id).textContent = '';
@@ -526,17 +541,63 @@ function initContactForm() {
       valid = false;
     }
 
-    if (!valid) {
-      e.preventDefault(); /* block submit only when validation fails */
-      return;
-    }
+    if (!valid) return;
 
-    /* Valid — show loading state then let the browser POST natively */
+    /* Valid — show loading state */
     sendBtn.disabled = true;
     btnText.style.display = 'none';
     btnLoad.style.display = 'inline';
     btnIcon.style.display = 'none';
-    /* No e.preventDefault() — browser submits the form to FormSubmit */
+
+    /* Prepare form data for fetch */
+    const formData = new FormData(form);
+
+    /* Send asynchronously to FormSubmit */
+    fetch(form.action, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Accept': 'application/json' // Forces FormSubmit to return JSON instead of a redirect
+      }
+    })
+      .then(response => {
+        if (response.ok) {
+          // Show success message
+          successMsg.style.display = 'block';
+          // Erase all current input
+          form.reset();
+
+          // Hide success message after 3 seconds
+          setTimeout(() => {
+            successMsg.style.display = 'none';
+          }, 3000);
+
+        } else {
+          // Show error message if server rejects it
+          errorMsg.style.display = 'block';
+
+          // Hide error message after 3 seconds
+          setTimeout(() => {
+            errorMsg.style.display = 'none';
+          }, 3000);
+        }
+      })
+      .catch(error => {
+        // Show error message on network failure
+        errorMsg.style.display = 'block';
+
+        // Hide error message after 3 seconds
+        setTimeout(() => {
+          errorMsg.style.display = 'none';
+        }, 3000);
+      })
+      .finally(() => {
+        // Revert button back to default state regardless of success/fail
+        sendBtn.disabled = false;
+        btnText.style.display = 'inline';
+        btnLoad.style.display = 'none';
+        btnIcon.style.display = ''; // Let CSS take over display property
+      });
   });
 }
 
